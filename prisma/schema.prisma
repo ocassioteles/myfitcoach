@@ -1,0 +1,73 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// Modelo de Usuário/Aluno
+model User {
+  id        Int      @id @default(autoincrement())
+  name      String
+  email     String   @unique
+  phone     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relacionamentos
+  workouts  Workout[]
+  payments  Payment[]
+  
+  @@map("users")
+}
+
+// Modelo de Treino
+model Workout {
+  id          Int      @id @default(autoincrement())
+  name        String
+  description String?
+  duration    Int      // em minutos
+  difficulty  String   // "iniciante", "intermediario", "avancado"
+  createdAt   DateTime @default(now())
+  
+  // Relacionamentos
+  userId      Int
+  user        User     @relation(fields: [userId], references: [id])
+  exercises   Exercise[]
+  
+  @@map("workouts")
+}
+
+// Modelo de Exercício
+model Exercise {
+  id          Int     @id @default(autoincrement())
+  name        String
+  sets        Int
+  reps        String  // "10-12" ou "30 segundos"
+  weight      Float?
+  notes       String?
+  
+  // Relacionamentos
+  workoutId   Int
+  workout     Workout @relation(fields: [workoutId], references: [id])
+  
+  @@map("exercises")
+}
+
+// Modelo de Pagamento
+model Payment {
+  id          Int      @id @default(autoincrement())
+  amount      Float
+  dueDate     DateTime
+  paidDate    DateTime?
+  status      String   @default("pending") // "pending", "paid", "overdue"
+  createdAt   DateTime @default(now())
+  
+  // Relacionamentos
+  userId      Int
+  user        User     @relation(fields: [userId], references: [id])
+  
+  @@map("payments")
+}
