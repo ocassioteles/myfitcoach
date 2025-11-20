@@ -26,13 +26,27 @@ model User {
   name      String
   email     String   @unique
   phone     String?
+  bio       String?  // Biografia do usuário
+  avatar    String?  // URL do avatar
+  isPublic  Boolean  @default(true) // Perfil público ou privado
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  // Autenticação
+  passwordHash String? // Hash de senha Argon2id (opcional inicialmente para migração)
   
-  // Relacionamentos
+  // Relacionamentos básicos
   workoutTemplates WorkoutTemplate[]
   workoutSessions  WorkoutSession[]
   payments         Payment[]
+  
+  // Relacionamentos sociais
+  followers         Follow[] @relation("UserFollowers")
+  following         Follow[] @relation("UserFollowing")
+  workoutComments   WorkoutComment[]
+  comparisonsAsUser1 ExerciseComparison[] @relation("ComparisonUser1")
+  comparisonsAsUser2 ExerciseComparison[] @relation("ComparisonUser2")
+  // Tokens de refresh
+  refreshTokens     RefreshToken[]
   
   @@map("users")
 }
@@ -82,6 +96,7 @@ model WorkoutSession {
   duration    Int?     // duração real em minutos
   notes       String?
   completed   Boolean  @default(false)
+  isPublic    Boolean  @default(true) // Treino público para comunidade
   
   // Relacionamentos
   userId            Int
@@ -89,6 +104,7 @@ model WorkoutSession {
   workoutTemplateId Int
   workoutTemplate   WorkoutTemplate @relation(fields: [workoutTemplateId], references: [id])
   exerciseLogs      ExerciseLog[]
+  comments          WorkoutComment[] // Comentários da comunidade
   
   @@map("workout_sessions")
 }
@@ -127,4 +143,67 @@ model Payment {
   user   User @relation(fields: [userId], references: [id])
   
   @@map("payments")
+}
+
+// Modelo para seguir outros usuários
+model Follow {
+  id          Int      @id @default(autoincrement())
+  followerId  Int      // Quem está seguindo
+  followingId Int      // Quem está sendo seguido
+  createdAt   DateTime @default(now())
+  
+  // Relacionamentos
+  follower  User @relation("UserFollowers", fields: [followerId], references: [id])
+  following User @relation("UserFollowing", fields: [followingId], references: [id])
+  
+  // Evitar seguir o mesmo usuário duas vezes
+  @@unique([followerId, followingId])
+  @@map("follows")
+}
+
+// Modelo para comentários em treinos
+model WorkoutComment {
+  id        Int      @id @default(autoincrement())
+  content   String
+  createdAt DateTime @default(now())
+  
+  // Relacionamentos
+  userId            Int
+  user              User            @relation(fields: [userId], references: [id])
+  workoutSessionId  Int
+  workoutSession    WorkoutSession  @relation(fields: [workoutSessionId], references: [id])
+  
+  @@map("workout_comments")
+}
+
+// Modelo para comparativo de exercícios entre usuários
+model ExerciseComparison {
+  id          Int      @id @default(autoincrement())
+  exerciseName String  // Nome do exercício para comparar
+  createdAt   DateTime @default(now())
+  
+  // Relacionamentos
+  user1Id Int
+  user2Id Int
+  user1   User @relation("ComparisonUser1", fields: [user1Id], references: [id])
+  user2   User @relation("ComparisonUser2", fields: [user2Id], references: [id])
+  
+  @@map("exercise_comparisons")
+}
+
+// Modelo de Refresh Token com rotação e expiração
+model RefreshToken {
+  id              Int       @id @default(autoincrement())
+  tokenHash       String    // Hash do token de refresh (não armazenar em texto puro)
+  jti             String    @unique // ID único do token
+  createdAt       DateTime  @default(now())
+  expiresAt       DateTime
+  revokedAt       DateTime?
+  replacedByToken String?   // jti do novo token gerado na rotação
+
+  // Relacionamento
+  userId Int
+  user   User @relation(fields: [userId], references: [id])
+
+  @@map("refresh_tokens")
 }
